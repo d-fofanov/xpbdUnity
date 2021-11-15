@@ -17,19 +17,16 @@ namespace xpbdUnity
         public Pose Pose => _pose;
         public Vector3 Omega => _omega;
 
-        public Body(in Pose pose)
+        public Body(in Pose pose, Vector3 size, float mass)
         {
             _prevPose = _pose = pose;
             _omega = _vel = Vector3.zero;
 
-            _invMass = 1f;
-            _invInertia = Vector3.one;
+            SetBox(size, mass);
         }
 
-        // TODO move out into the collider
-        public void SetBox(Vector3 size, float density = 1f)
+        private void SetBox(Vector3 size, float mass)
         {
-            var mass = size.x * size.y * size.z * density;
             _invMass = 1f / mass;
             mass /= 12f;
             _invInertia = new Vector3(
