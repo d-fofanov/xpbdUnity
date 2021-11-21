@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using xpbdUnity.Collision;
 
 namespace xpbdUnity
 {
@@ -7,10 +8,12 @@ namespace xpbdUnity
         private WorldParams _params;
         private List<Body> _bodies = new List<Body>();
         private List<XJoint> _joints = new List<XJoint>();
+        private PrimitiveCollisionSystem _collisionSystem = new PrimitiveCollisionSystem();
 
         public World(WorldParams @params)
         {
             _params = @params;
+            _collisionSystem.SetBodies(_bodies);
         }
 
         internal void AddBody(Body body)
@@ -33,9 +36,13 @@ namespace xpbdUnity
             {
                 for (var j = 0; j < _bodies.Count; j++)
                     _bodies[j].Integrate(dt, _params.gravity);
+                
+                _collisionSystem.Collide(dt);
 
                 for (var j = 0; j < _joints.Count; j++)
                     _joints[j].SolvePos(dt);
+                
+                _collisionSystem.Collide(dt);
 
                 for (var j = 0; j < _bodies.Count; j++)
                     _bodies[j].Update(dt);

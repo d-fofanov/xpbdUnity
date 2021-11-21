@@ -7,9 +7,9 @@ namespace xpbdUnity
     public class JointParams
     {
         public Vector3 localPos0;
-        public Quaternion localRot0;
+        public Quaternion localRot0 = Quaternion.identity;
         public Vector3 localPos1;
-        public Quaternion localRot1;
+        public Quaternion localRot1 = Quaternion.identity;
 
         public JointType type;					
         public float compliance = 0f;

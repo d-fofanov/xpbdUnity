@@ -1,4 +1,5 @@
 using UnityEngine;
+using xpbdUnity.Collision;
 
 namespace xpbdUnity
 {
@@ -11,33 +12,22 @@ namespace xpbdUnity
         private Vector3 _vel;
         private Vector3 _omega;
 
-        private float _invMass;
-        private Vector3 _invInertia;
+        private BaseCollider _collider;
 
         public Pose Pose => _pose;
+        public BaseCollider Collider => _collider;
         public Vector3 Omega => _omega;
 
-        public Body(in Pose pose, Vector3 size, float mass)
+        public Body(in Pose pose, BaseCollider collider)
         {
             _prevPose = _pose = pose;
             _omega = _vel = Vector3.zero;
 
-            SetBox(size, mass);
-        }
-
-        private void SetBox(Vector3 size, float mass)
-        {
-            _invMass = 1f / mass;
-            mass /= 12f;
-            _invInertia = new Vector3(
-                1f / (size.y * size.y + size.z * size.z) / mass,
-                1f / (size.z * size.z + size.x * size.x) / mass,
-                1f / (size.x * size.x + size.y * size.y) / mass);
+            _collider = collider;
         }
 
         public void ApplyRotation(Vector3 rot, float scale = 1f)
         {
-
             // safety clamping. This happens very rarely if the solver
             // wants to turn the body by more than 30 degrees in the
             // orders of milliseconds
@@ -88,12 +78,12 @@ namespace xpbdUnity
             n = _pose.InvRotate(n);
 
             var w =
-                n.x * n.x * _invInertia.x +
-                n.y * n.y * _invInertia.y +
-                n.z * n.z * _invInertia.z;
+                n.x * n.x * _collider.InvInertia.x +
+                n.y * n.y * _collider.InvInertia.y +
+                n.z * n.z * _collider.InvInertia.z;
 
             if (pos != null)
-                w += _invMass;
+                w += _collider.InvMass;
 
             return w;
         }
@@ -108,15 +98,15 @@ namespace xpbdUnity
             else
             {
                 if (velocityLevel)
-                    _vel += corr * _invMass;
+                    _vel += corr * _collider.InvMass;
                 else
-                    _pose = _pose.Translate(corr * _invMass);
+                    _pose = _pose.Translate(corr * _collider.InvMass);
 
                 dq = Vector3.Cross(pos.Value - _pose.Position, corr);
             }
 
             dq = _pose.InvRotate(dq);
-            dq.Scale(_invInertia);
+            dq.Scale(_collider.InvInertia);
 
             dq = _pose.Rotate(dq);
 
