@@ -114,7 +114,20 @@ namespace xpbdUnity
             // simple attachment
 
             UpdateGlobalPoses();
-            var corr = _globalPose1.Position - _globalPose0.Position;
+            Vector3 corr = Vector3.zero;
+            if (_params.type == JointType.Distance)
+            {
+                var dp = _globalPose1.Position - _globalPose0.Position;
+                var distance = dp.magnitude;
+                if (distance > _params.distance)
+                {
+                    corr = dp / distance * (distance - _params.distance);
+                }
+            }
+            else
+            {
+                corr = _globalPose1.Position - _globalPose0.Position;
+            }
             Body.ApplyBodyPairCorrection(_body0, _body1, corr, _params.compliance, dt,
                 _globalPose0.Position, _globalPose1.Position);
         }

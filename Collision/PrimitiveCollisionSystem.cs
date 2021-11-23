@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace xpbdUnity.Collision
 {
@@ -15,17 +14,6 @@ namespace xpbdUnity.Collision
 
         internal void Collide(float dt)
         {
-            foreach (var body in _bodies)
-            {
-                var pose = body.Pose;
-                var collider = body.Collider;
-                if (collider.IntersectWithFloor(pose, _globalFloorLevel,
-                    out var point, out var normal, out var shift))
-                {
-                    Body.ApplyBodyPairCorrection(body, null, normal * shift, 0f, dt, point);
-                }
-            }
-
             for (int i=0; i<_bodies.Count; i++)
             {
                 for (int j=i+1; j<_bodies.Count; j++)
@@ -41,8 +29,18 @@ namespace xpbdUnity.Collision
                     if (c0.Intersect(p0, c1, p1, out var point, out var normal, out var shift))
                     {
                         Body.ApplyBodyPairCorrection(b0, b1, normal * shift, 0f, dt, point, point);
-                        Debug.Log($"{c0.GetType().Name} collided {c1.GetType().Name} with shift {shift}, applied correction {normal} at {point}");
                     }
+                }
+            }
+            
+            foreach (var body in _bodies)
+            {
+                var pose = body.Pose;
+                var collider = body.Collider;
+                if (collider.IntersectWithFloor(pose, _globalFloorLevel,
+                    out var point, out var normal, out var shift))
+                {
+                    Body.ApplyBodyPairCorrection(body, null, normal * shift, 0f, dt, point);
                 }
             }
         }

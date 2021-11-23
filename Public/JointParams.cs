@@ -23,5 +23,6 @@ namespace xpbdUnity
         public float minTwistAngle = -2f * Mathf.PI;
         public float maxTwistAngle = 2f * Mathf.PI;
         public float twistLimitCompliance = 0f;
+        public float distance = 0f;
     }
 }

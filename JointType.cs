@@ -4,6 +4,7 @@ namespace xpbdUnity
     {
         Spherical,
         Hinge,
-        Fixed
+        Fixed,
+        Distance
     }
 }

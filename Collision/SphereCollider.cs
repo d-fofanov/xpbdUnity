@@ -54,11 +54,7 @@ namespace xpbdUnity.Collision
             normal = distance > Mathf.Epsilon ? dp / distance : Vector3.up;
             shift = rSum - distance;
             point = atPose.Position + normal * (_radius - 0.5f * shift);
-
-            if (shift > 0f)
-            {
-                Debug.Log($"Collision");
-            }
+            
             return shift > 0f;
         }
 
