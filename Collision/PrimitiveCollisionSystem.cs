@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace xpbdUnity.Collision
 {
@@ -25,12 +26,12 @@ namespace xpbdUnity.Collision
                 }
             }
 
-            foreach (var b0 in _bodies)
+            for (int i=0; i<_bodies.Count; i++)
             {
-                foreach (var b1 in _bodies)
+                for (int j=i+1; j<_bodies.Count; j++)
                 {
-                    if (b0 == b1)
-                        continue;
+                    var b0 = _bodies[i];
+                    var b1 = _bodies[j];
 
                     var p0 = b0.Pose;
                     var p1 = b1.Pose;
@@ -40,6 +41,7 @@ namespace xpbdUnity.Collision
                     if (c0.Intersect(p0, c1, p1, out var point, out var normal, out var shift))
                     {
                         Body.ApplyBodyPairCorrection(b0, b1, normal * shift, 0f, dt, point, point);
+                        Debug.Log($"{c0.GetType().Name} collided {c1.GetType().Name} with shift {shift}, applied correction {normal} at {point}");
                     }
                 }
             }

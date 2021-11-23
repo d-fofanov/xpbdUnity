@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace xpbdUnity.Collision
@@ -50,113 +51,89 @@ namespace xpbdUnity.Collision
             var pMin = boxPos - fullExtent;
             var pMax = boxPos + fullExtent;
 
-            var counter = 0;
             point = Vector3.zero;
             normal = Vector3.zero;
             shift = 0f;
 
-            Vector3 secPoint;
-            float secRadius, depth;
-            if (Geometry.IsSphereIntersectingPlane(otherPose.Position, sphere.Radius,
-                boxRight, pMax, out secPoint, out secRadius, out depth))
-            {
-                // point either inside all the other planes, or it's no more than radius outside
-                if (Geometry.PointPlaneDistance(secPoint, boxFwd, pMax) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, -boxFwd, pMin) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, boxUp, pMax) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, -boxUp, pMin) <= secRadius)
-                {
-                    point += secPoint;
-                    normal += -boxRight;
-                    shift = Mathf.Max(shift, depth);
-                    counter++;
-                }
-            }
+            if (IntersectSphereWithPlaneSegment(otherPose.Position, sphere.Radius, boxRight, pMax,
+                boxFwd, boxUp, pMax, pMin,
+                ref point, ref normal, ref shift))
+                return true;
             
-            if (Geometry.IsSphereIntersectingPlane(otherPose.Position, sphere.Radius,
-                -boxRight, pMin, out secPoint, out secRadius, out depth))
-            {
-                // point either inside all the other planes, or it's no more than radius outside
-                if (Geometry.PointPlaneDistance(secPoint, boxFwd, pMax) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, -boxFwd, pMin) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, boxUp, pMax) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, -boxUp, pMin) <= secRadius)
-                {
-                    point += secPoint;
-                    normal += boxRight;
-                    shift = Mathf.Max(shift, depth);
-                    counter++;
-                }
-            }
+            if (IntersectSphereWithPlaneSegment(otherPose.Position, sphere.Radius, -boxRight, pMin,
+                boxFwd, boxUp, pMax, pMin,
+                ref point, ref normal, ref shift))
+                return true;
+
+            if (IntersectSphereWithPlaneSegment(otherPose.Position, sphere.Radius, boxUp, pMax,
+                boxRight, boxFwd, pMax, pMin,
+                ref point, ref normal, ref shift))
+                return true;
+
+            if (IntersectSphereWithPlaneSegment(otherPose.Position, sphere.Radius, -boxUp, pMin,
+                boxRight, boxFwd, pMax, pMin,
+                ref point, ref normal, ref shift))
+                return true;
+
+            if (IntersectSphereWithPlaneSegment(otherPose.Position, sphere.Radius, boxFwd, pMax,
+                boxRight, boxUp, pMax, pMin,
+                ref point, ref normal, ref shift))
+                return true;
             
-            if (Geometry.IsSphereIntersectingPlane(otherPose.Position, sphere.Radius,
-                boxUp, pMax, out secPoint, out secRadius, out depth))
-            {
-                // point either inside all the other planes, or it's no more than radius outside
-                if (Geometry.PointPlaneDistance(secPoint, boxRight, pMax) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, -boxRight, pMin) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, boxFwd, pMax) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, -boxFwd, pMin) <= secRadius)
-                {
-                    point += secPoint;
-                    normal += -boxUp;
-                    shift = Mathf.Max(shift, depth);
-                    counter++;
-                }
-            }
+            if (IntersectSphereWithPlaneSegment(otherPose.Position, sphere.Radius, -boxFwd, pMin,
+                boxRight, boxUp, pMax, pMin,
+                ref point, ref normal, ref shift))
+                return true;
             
-            if (Geometry.IsSphereIntersectingPlane(otherPose.Position, sphere.Radius,
-                -boxUp, pMin, out secPoint, out secRadius, out depth))
+            return shift > 0f;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool IntersectSphereWithPlaneSegment(Vector3 spherePos, float sphereRadius, Vector3 planeNormal,
+            Vector3 planePoint, Vector3 sidePlane1Normal, Vector3 sidePlane2Normal, Vector3 sidePlanesPoint, Vector3 invSidePlanesPoint,
+            ref Vector3 outPoint, ref Vector3 outNormal, ref float shift)
+        {
+            if (Geometry.IsSphereIntersectingPlane(spherePos, sphereRadius,
+                planeNormal, planePoint, out var secPoint, out var secRadius, out var depthNormal))
             {
+                var depth0 = secRadius - Geometry.PointPlaneDistance(secPoint, sidePlane1Normal, sidePlanesPoint);
+                var depth1 = secRadius - Geometry.PointPlaneDistance(secPoint, -sidePlane1Normal, invSidePlanesPoint);
+                var depth2 = secRadius - Geometry.PointPlaneDistance(secPoint, sidePlane2Normal, sidePlanesPoint);
+                var depth3 = secRadius - Geometry.PointPlaneDistance(secPoint, -sidePlane2Normal, invSidePlanesPoint);
+                
                 // point either inside all the other planes, or it's no more than radius outside
-                if (Geometry.PointPlaneDistance(secPoint, boxRight, pMax) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, -boxRight, pMin) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, boxFwd, pMax) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, -boxFwd, pMin) <= secRadius)
+                if (depth0 >= 0f && depth1 >= 0f && depth2 >= 0f && depth3 >= 0f)
                 {
-                    point += secPoint;
-                    normal += boxUp;
-                    shift = Mathf.Max(shift, depth);
-                    counter++;
-                }
-            }
-            
-            if (Geometry.IsSphereIntersectingPlane(otherPose.Position, sphere.Radius,
-                boxFwd, pMax, out secPoint, out secRadius, out depth))
-            {
-                // point either inside all the other planes, or it's no more than radius outside
-                if (Geometry.PointPlaneDistance(secPoint, boxRight, pMax) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, -boxRight, pMin) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, boxUp, pMax) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, -boxUp, pMin) <= secRadius)
-                {
-                    point += secPoint;
-                    normal += -boxFwd;
-                    shift = Mathf.Max(shift, depth);
-                    counter++;
-                }
-            }
-            
-            if (Geometry.IsSphereIntersectingPlane(otherPose.Position, sphere.Radius,
-                -boxFwd, pMin, out secPoint, out secRadius, out depth))
-            {
-                // point either inside all the other planes, or it's no more than radius outside
-                if (Geometry.PointPlaneDistance(secPoint, boxRight, pMax) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, -boxRight, pMin) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, boxUp, pMax) <= secRadius &&
-                    Geometry.PointPlaneDistance(secPoint, -boxUp, pMin) <= secRadius)
-                {
-                    point += secPoint;
-                    normal += boxFwd;
-                    shift = Mathf.Max(shift, depth);
-                    counter++;
+                    var isSupported = depth0 > secRadius && depth1 > secRadius && depth2 > secRadius && depth3 > secRadius;
+                    if (isSupported)
+                    {
+                        outPoint = secPoint;
+                        outNormal = -planeNormal;
+                        shift = depthNormal;
+                        return true;
+                    }
+                    
+                    var depth = Mathf.Min(Mathf.Min(depth0, depth1), Mathf.Min(depth2, depth3));
+                    if (depth >= shift && shift != 0f)
+                        return false;
+
+                    var minSecNormal = Vector3.zero;
+                    if (depth == depth0)
+                        minSecNormal = sidePlane1Normal;
+                    else if (depth == depth1)
+                        minSecNormal = -sidePlane1Normal;
+                    else if (depth == depth2)
+                        minSecNormal = sidePlane2Normal;
+                    else if (depth == depth3)
+                        minSecNormal = -sidePlane2Normal;
+                    
+                    shift = depth;
+                    outPoint = secPoint - minSecNormal * (secRadius - 0.5f * depth);
+                    outNormal = (outPoint - spherePos).normalized;
                 }
             }
 
-            var factor = 1f / counter;
-            point *= factor;
-            normal *= factor;
-            return shift > 0f;
+            return false;
         }
 
         private bool IntersectWithBox(Pose atPose, BoxCollider box, Pose otherPose, out Vector3 point, out Vector3 normal, out float shift)
