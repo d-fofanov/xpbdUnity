@@ -47,10 +47,10 @@ namespace xpbdUnity
             _pose = _pose.SetRotation(newRotation);
         }
 
-        public void Integrate(float dt, Vector3 gravity)
+        public void Integrate(float dt, Vector3 gravity, Vector3 force)
         {
             _prevPose = _pose;
-            _vel += gravity * dt;
+            _vel += (gravity + force * _collider.InvMass) * dt;
             _pose = _pose.Translate(_vel * dt);
             ApplyRotation(_omega, dt);
         }

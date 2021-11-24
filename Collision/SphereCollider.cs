@@ -5,6 +5,7 @@ namespace xpbdUnity.Collision
     public class SphereCollider : BaseCollider
     {
         public float Radius => _radius;
+        public override float Volume => Mathf.PI * 1.333333f * _radius * _radius * _radius;
         
         private float _radius;
         

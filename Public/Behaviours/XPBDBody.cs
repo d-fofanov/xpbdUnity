@@ -10,8 +10,15 @@ namespace xpbdUnity
         [Tooltip("Full size for a box collider, radius in X component for sphere collider")]
         [SerializeField] private Vector3 _size = Vector3.one;
 
+        public BaseCollider Collider => _body?.Collider;
+
         private Transform _transform;
         internal Body _body;
+
+        public void AddForce(Vector3 force)
+        {
+            XPBDSingleWorld.Instance.AddForce(_body, force);
+        }
 
         private void Start()
         {

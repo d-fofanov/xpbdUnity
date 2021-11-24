@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace xpbdUnity
 {
     public class XPBDSingleWorld
@@ -30,6 +32,11 @@ namespace xpbdUnity
         internal void AddJoint(XJoint joint)
         {
             _world.AddJoint(joint);
+        }
+
+        internal void AddForce(Body body, Vector3 force)
+        {
+            _world.AddForce(body, force);
         }
 
         public void Simulate()

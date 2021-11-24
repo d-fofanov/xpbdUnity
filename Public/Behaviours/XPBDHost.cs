@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace xpbdUnity
 {
+    [DefaultExecutionOrder(-999)]
     public class XPBDHost : MonoBehaviour
     {
         [SerializeField] private WorldParams _params;

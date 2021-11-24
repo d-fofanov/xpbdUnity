@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 using xpbdUnity.Collision;
 
 namespace xpbdUnity
@@ -7,6 +8,7 @@ namespace xpbdUnity
     {
         private WorldParams _params;
         private List<Body> _bodies = new List<Body>();
+        private List<Vector3> _forces = new List<Vector3>();
         private List<XJoint> _joints = new List<XJoint>();
         private PrimitiveCollisionSystem _collisionSystem = new PrimitiveCollisionSystem();
 
@@ -18,14 +20,27 @@ namespace xpbdUnity
 
         internal void AddBody(Body body)
         {
-            if (!_bodies.Contains(body))
-                _bodies.Add(body);
+            if (_bodies.Contains(body))
+                return;
+            
+            _bodies.Add(body);
+            _forces.Add(Vector3.zero);
         }
 
         internal void AddJoint(XJoint joint)
         {
             if (!_joints.Contains(joint))
                 _joints.Add(joint);
+        }
+
+        internal void AddForce(Body body, Vector3 force)
+        {
+            // TODO remove linear search
+            var index = _bodies.IndexOf(body);
+            if (index == -1)
+                return;
+
+            _forces[index] += force;
         }
 
         internal void Simulate()
@@ -35,13 +50,13 @@ namespace xpbdUnity
             for (var i = 0; i < _params.numSubsteps; i++)
             {
                 for (var j = 0; j < _bodies.Count; j++)
-                    _bodies[j].Integrate(dt, _params.gravity);
-                
+                    _bodies[j].Integrate(dt, _params.gravity, _forces[j]);
+
                 _collisionSystem.Collide(dt);
 
                 for (var j = 0; j < _joints.Count; j++)
                     _joints[j].SolvePos(dt);
-                
+
                 _collisionSystem.Collide(dt);
 
                 for (var j = 0; j < _bodies.Count; j++)
@@ -49,6 +64,11 @@ namespace xpbdUnity
 
                 for (var j = 0; j < _joints.Count; j++)
                     _joints[j].SolveVel(dt);
+            }
+
+            for (var j = 0; j < _bodies.Count; j++)
+            {
+                _forces[j] = Vector3.zero;
             }
         }
     }
