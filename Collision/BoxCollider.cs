@@ -12,11 +12,12 @@ namespace xpbdUnity.Collision
         private Vector3 _size;
         private Vector3 _halfSize;
         
-        public BoxCollider(Vector3 size, float mass)
+        public BoxCollider(Vector3 size, float mass, Vector3? drag = null)
         {
             _size = size;
             _halfSize = 0.5f * size;
-            
+
+            _drag = drag ?? Vector3.zero;
             _invMass = 1f / mass;
             mass /= 12f;
             _invInertia = new Vector3(

@@ -9,8 +9,9 @@ namespace xpbdUnity.Collision
         
         private float _radius;
         
-        public SphereCollider(float radius, float mass)
+        public SphereCollider(float radius, float mass, Vector3? drag = null)
         {
+            _drag = drag ?? Vector3.zero;
             _radius = radius;
             _invMass = 1f / mass;
             var invInertiaVal = 1f / (0.4f * mass * radius * radius);
