@@ -8,6 +8,7 @@ namespace xpbdUnity.Collision
         public Vector3 Size => _size;
         public Vector3 HalfSize => _halfSize;
         public override float Volume => _size.x * _size.y * _size.z;
+        public override Vector3 AABBSize => _size;
         
         private Vector3 _size;
         private Vector3 _halfSize;

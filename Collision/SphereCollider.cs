@@ -6,7 +6,8 @@ namespace xpbdUnity.Collision
     {
         public float Radius => _radius;
         public override float Volume => Mathf.PI * 1.333333f * _radius * _radius * _radius;
-        
+        public override Vector3 AABBSize => Vector3.one * _radius;
+
         private float _radius;
         
         public SphereCollider(float radius, float mass, Vector3? drag = null)

@@ -9,6 +9,17 @@ namespace xpbdUnity
         [SerializeField] private XPBDBody _body1;
         [SerializeField] private JointParams _params;
 
+        public XPBDBody TargetBody
+        {
+            get => _body1;
+            set => _body1 = value;
+        }
+
+        public Vector3 GlobalPos0 => _joint.GlobalPose0.Position;
+        public Vector3 GlobalPos1 => _joint.GlobalPose1.Position;
+
+        public JointParams Parameters => _params;
+
         private XJoint _joint;
 
         private void Start()

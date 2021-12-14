@@ -15,6 +15,7 @@ namespace xpbdUnity.Collision
         public Vector3 InvInertia => _invInertia;
 
         public abstract float Volume { get; }
+        public abstract Vector3 AABBSize { get; }
         
         protected float _invMass;
         protected Vector3 _invInertia;

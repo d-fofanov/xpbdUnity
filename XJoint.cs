@@ -4,6 +4,9 @@ namespace xpbdUnity
 {
     internal class XJoint
     {
+        public Pose GlobalPose0 => _globalPose0;
+        public Pose GlobalPose1 => _globalPose1;
+        
         private Body _body0;
         private Body _body1;
         private Pose _localPose0;
