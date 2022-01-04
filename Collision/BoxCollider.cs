@@ -139,9 +139,206 @@ namespace xpbdUnity.Collision
             return false;
         }
 
+        private static Vector3[] _directionsCache = new Vector3[6];
+        private static float[] _halfProjectionsCache = new float[12];
         private bool IntersectWithBox(Pose atPose, BoxCollider box, Pose otherPose, out Vector3 point, out Vector3 normal, out float shift)
         {
-            throw new System.NotImplementedException();
+            var box0HalfExtents = _halfSize;
+            var box0Rot = atPose.Rotation;
+            _directionsCache[0] = box0Rot.GetAxis0();
+            _directionsCache[1] = box0Rot.GetAxis1();
+            _directionsCache[2] = box0Rot.GetAxis2();
+
+            var box1HalfExtents = box._halfSize;
+            var box1Rot = otherPose.Rotation;
+            _directionsCache[3] = box1Rot.GetAxis0();
+            _directionsCache[4] = box1Rot.GetAxis1();
+            _directionsCache[5] = box1Rot.GetAxis2();
+
+            var box0Axis0HalfExt = _directionsCache[0] * box0HalfExtents.x;
+            var box0Axis1HalfExt = _directionsCache[1] * box0HalfExtents.y;
+            var box0Axis2HalfExt = _directionsCache[2] * box0HalfExtents.z;
+            _halfProjectionsCache[0] = box0HalfExtents.x;
+            _halfProjectionsCache[1] = box0HalfExtents.y;
+            _halfProjectionsCache[2] = box0HalfExtents.z;
+            _halfProjectionsCache[3] = ProjectBoxOnAxis(_directionsCache[3], box0Axis0HalfExt, box0Axis1HalfExt, box0Axis2HalfExt);
+            _halfProjectionsCache[4] = ProjectBoxOnAxis(_directionsCache[4], box0Axis0HalfExt, box0Axis1HalfExt, box0Axis2HalfExt);
+            _halfProjectionsCache[5] = ProjectBoxOnAxis(_directionsCache[5], box0Axis0HalfExt, box0Axis1HalfExt, box0Axis2HalfExt);
+            
+            var box1Axis0HalfExt = _directionsCache[3] * box1HalfExtents.x;
+            var box1Axis1HalfExt = _directionsCache[4] * box1HalfExtents.y;
+            var box1Axis2HalfExt = _directionsCache[5] * box1HalfExtents.z;
+            _halfProjectionsCache[6] = ProjectBoxOnAxis(_directionsCache[0], box1Axis0HalfExt, box1Axis1HalfExt, box1Axis2HalfExt);
+            _halfProjectionsCache[7] = ProjectBoxOnAxis(_directionsCache[1], box1Axis0HalfExt, box1Axis1HalfExt, box1Axis2HalfExt);
+            _halfProjectionsCache[8] = ProjectBoxOnAxis(_directionsCache[2], box1Axis0HalfExt, box1Axis1HalfExt, box1Axis2HalfExt);
+            _halfProjectionsCache[9] = box1HalfExtents.x;
+            _halfProjectionsCache[10] = box1HalfExtents.y;
+            _halfProjectionsCache[11] = box1HalfExtents.z;
+
+            var deltaPos = otherPose.Position - atPose.Position;
+            if (Geometry.SATIntersect(deltaPos, _directionsCache, _halfProjectionsCache, out var collNormal,
+                    out var collDepth))
+            {
+                normal = collNormal;
+                shift = collDepth;
+                point = CalcCollisionPoint(collNormal,
+                    atPose, box0HalfExtents, _directionsCache[0], _directionsCache[1], _directionsCache[2],
+                    otherPose, box1HalfExtents, _directionsCache[3], _directionsCache[4], _directionsCache[5]
+                );
+                return true;
+            }
+
+            normal = point = Vector3.zero;
+            shift = 0f;
+            return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private float ProjectBoxOnAxis(Vector3 axis, Vector3 axis0HalfExt, Vector3 axis1HalfExt, Vector3 axis2HalfExt)
+        {
+            var proj0 = Mathf.Abs(Vector3.Dot(axis, axis0HalfExt + axis1HalfExt + axis2HalfExt));
+            var proj1 = Mathf.Abs(Vector3.Dot(axis, axis0HalfExt + axis1HalfExt - axis2HalfExt));
+            var proj2 = Mathf.Abs(Vector3.Dot(axis, axis0HalfExt - axis1HalfExt + axis2HalfExt));
+            var proj3 = Mathf.Abs(Vector3.Dot(axis, axis0HalfExt - axis1HalfExt - axis2HalfExt));
+
+            return Mathf.Max(Mathf.Max(proj0, proj1), Mathf.Max(proj2, proj3));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private Vector3 CalcCollisionPoint(Vector3 collNormal,
+            Pose box0Pose, Vector3 box0HalfExtents, Vector3 box0Axis0, Vector3 box0Axis1, Vector3 box0Axis2,
+            Pose box1Pose, Vector3 box1HalfExtents, Vector3 box1Axis0, Vector3 box1Axis1, Vector3 box1Axis2)
+        {
+            CalcCollisionAndClippingData(collNormal, box0Pose, box0HalfExtents, box0Axis0, box0Axis1, box0Axis2,
+                out var box0PlaneNormal,
+                out var box0PlanePoint0, out var box0PlanePoint1,
+                out var box0PlanePoint2, out var box0PlanePoint3,
+                out var box0ClipNormal0, out var box0ClipNormal1,
+                out var box0ClipPointPositive, out var box0ClipPointNegative,
+                out var box0PlaneNormalDot);
+            
+            CalcCollisionAndClippingData(-collNormal, box1Pose, box1HalfExtents, box1Axis0, box1Axis1, box1Axis2,
+                out var box1PlaneNormal,
+                out var box1PlanePoint0, out var box1PlanePoint1,
+                out var box1PlanePoint2, out var box1PlanePoint3,
+                out var box1ClipNormal0, out var box1ClipNormal1,
+                out var box1ClipPointPositive, out var box1ClipPointNegative,
+                out var box1PlaneNormalDot);
+            
+            bool box0IsReference = Mathf.Abs(box0PlaneNormalDot) > Mathf.Abs(box1PlaneNormalDot);
+            if (box0IsReference)
+            {
+                ClipPointByPlanes(ref box1PlanePoint0, box0ClipNormal0, box0ClipNormal1, box0ClipPointPositive, box0ClipPointNegative);
+                ClipPointByPlanes(ref box1PlanePoint1, box0ClipNormal0, box0ClipNormal1, box0ClipPointPositive, box0ClipPointNegative);
+                ClipPointByPlanes(ref box1PlanePoint2, box0ClipNormal0, box0ClipNormal1, box0ClipPointPositive, box0ClipPointNegative);
+                ClipPointByPlanes(ref box1PlanePoint3, box0ClipNormal0, box0ClipNormal1, box0ClipPointPositive, box0ClipPointNegative);
+                var weight0 = Mathf.Max(0f, Vector3.Dot(box0PlanePoint0 - box1PlanePoint0, box0PlaneNormal));
+                var weight1 = Mathf.Max(0f, Vector3.Dot(box0PlanePoint0 - box1PlanePoint1, box0PlaneNormal));
+                var weight2 = Mathf.Max(0f, Vector3.Dot(box0PlanePoint0 - box1PlanePoint2, box0PlaneNormal));
+                var weight3 = Mathf.Max(0f, Vector3.Dot(box0PlanePoint0 - box1PlanePoint3, box0PlaneNormal));
+
+                var weightsSum = weight0 + weight1 + weight2 + weight3;
+                if (weightsSum <= 0f)
+                {
+                    Debug.LogWarning("No points under the contact surface");
+                    return box1PlanePoint0;
+                }
+
+                return (weight0 * box1PlanePoint0 + weight1 * box1PlanePoint1 +
+                        weight2 * box1PlanePoint2 + weight3 * box1PlanePoint3) / weightsSum;
+            }
+            else
+            {
+                ClipPointByPlanes(ref box0PlanePoint0, box1ClipNormal0, box1ClipNormal1, box1ClipPointPositive, box1ClipPointNegative);
+                ClipPointByPlanes(ref box0PlanePoint1, box1ClipNormal0, box1ClipNormal1, box1ClipPointPositive, box1ClipPointNegative);
+                ClipPointByPlanes(ref box0PlanePoint2, box1ClipNormal0, box1ClipNormal1, box1ClipPointPositive, box1ClipPointNegative);
+                ClipPointByPlanes(ref box0PlanePoint3, box1ClipNormal0, box1ClipNormal1, box1ClipPointPositive, box1ClipPointNegative);
+                var weight0 = Mathf.Max(0f, Vector3.Dot(box1PlanePoint0 - box0PlanePoint0, box1PlaneNormal));
+                var weight1 = Mathf.Max(0f, Vector3.Dot(box1PlanePoint0 - box0PlanePoint1, box1PlaneNormal));
+                var weight2 = Mathf.Max(0f, Vector3.Dot(box1PlanePoint0 - box0PlanePoint2, box1PlaneNormal));
+                var weight3 = Mathf.Max(0f, Vector3.Dot(box1PlanePoint0 - box0PlanePoint3, box1PlaneNormal));
+
+                var weightsSum = weight0 + weight1 + weight2 + weight3;
+                if (weightsSum <= 0f)
+                {
+                    Debug.LogWarning("No points under the contact surface");
+                    return box0PlanePoint0;
+                }
+
+                return (weight0 * box0PlanePoint0 + weight1 * box0PlanePoint1 +
+                        weight2 * box0PlanePoint2 + weight3 * box0PlanePoint3) / weightsSum;
+            }
+        }
+
+        private void ClipPointByPlanes(ref Vector3 point,
+            Vector3 clipNormal0, Vector3 clipNormal1, Vector3 clipPointPositive, Vector3 clipPointNegative)
+        {
+            // inverting normals to clip by the cube sides facing inward
+            point = Geometry.ClipPointByPlaneInline(point, -clipNormal0, clipPointPositive);
+            point = Geometry.ClipPointByPlaneInline(point, -clipNormal1, clipPointPositive);
+            point = Geometry.ClipPointByPlaneInline(point, clipNormal0, clipPointNegative);
+            point = Geometry.ClipPointByPlaneInline(point, clipNormal1, clipPointNegative);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void CalcCollisionAndClippingData(Vector3 collNormal,
+            Pose boxPose, Vector3 boxHalfExtents, Vector3 boxAxis0, Vector3 boxAxis1, Vector3 boxAxis2,
+            out Vector3 boxPlaneNormal, out Vector3 boxPlanePoint0, out Vector3 boxPlanePoint1, out Vector3 boxPlanePoint2, out Vector3 boxPlanePoint3,
+            out Vector3 boxClipNormal0, out Vector3 boxClipNormal1, out Vector3 boxClipPointPositive, out Vector3 boxClipPointNegative,
+            out float boxPlaneNormalDot)
+        {
+            var boxAxis0Dot = Vector3.Dot(collNormal, boxAxis0);
+            var boxAxis1Dot = Vector3.Dot(collNormal, boxAxis1);
+            var boxAxis2Dot = Vector3.Dot(collNormal, boxAxis2);
+            if (Mathf.Abs(boxAxis0Dot) > Mathf.Abs(boxAxis1Dot) && Mathf.Abs(boxAxis0Dot) > Mathf.Abs(boxAxis2Dot))
+            {
+                boxPlaneNormalDot = boxAxis0Dot;
+                var dotSign = -Mathf.Sign(boxAxis0Dot);
+                boxPlaneNormal = boxAxis0 * dotSign;
+                var boxSideCenter = boxPose.Position + boxHalfExtents.x * boxAxis0 * dotSign;
+                boxPlanePoint0 = boxSideCenter + boxHalfExtents.y * boxAxis1 + boxHalfExtents.z * boxAxis2;
+                boxPlanePoint1 = boxSideCenter + boxHalfExtents.y * boxAxis1 - boxHalfExtents.z * boxAxis2;
+                boxPlanePoint2 = boxSideCenter - boxHalfExtents.y * boxAxis1 + boxHalfExtents.z * boxAxis2;
+                boxPlanePoint3 = boxSideCenter - boxHalfExtents.y * boxAxis1 - boxHalfExtents.z * boxAxis2;
+
+                boxClipNormal0 = boxAxis1;
+                boxClipNormal1 = boxAxis2;
+                boxClipPointPositive = boxPlanePoint0;
+                boxClipPointNegative = boxPlanePoint3;
+            }
+            else if (Mathf.Abs(boxAxis1Dot) > Mathf.Abs(boxAxis0Dot) &&
+                     Mathf.Abs(boxAxis1Dot) > Mathf.Abs(boxAxis2Dot))
+            {
+                boxPlaneNormalDot = boxAxis1Dot;
+                var dotSign = -Mathf.Sign(boxAxis1Dot);
+                boxPlaneNormal = boxAxis1 * dotSign;
+                var boxSideCenter = boxPose.Position + boxHalfExtents.y * boxAxis1 * dotSign;
+                boxPlanePoint0 = boxSideCenter + boxHalfExtents.x * boxAxis0 + boxHalfExtents.z * boxAxis2;
+                boxPlanePoint1 = boxSideCenter + boxHalfExtents.x * boxAxis0 - boxHalfExtents.z * boxAxis2;
+                boxPlanePoint2 = boxSideCenter - boxHalfExtents.x * boxAxis0 + boxHalfExtents.z * boxAxis2;
+                boxPlanePoint3 = boxSideCenter - boxHalfExtents.x * boxAxis0 - boxHalfExtents.z * boxAxis2;
+
+                boxClipNormal0 = boxAxis0;
+                boxClipNormal1 = boxAxis2;
+                boxClipPointPositive = boxPlanePoint0;
+                boxClipPointNegative = boxPlanePoint3;
+            }
+            else
+            {
+                boxPlaneNormalDot = boxAxis2Dot;
+                var dotSign = -Mathf.Sign(boxAxis2Dot);
+                boxPlaneNormal = boxAxis2 * dotSign;
+                var boxSideCenter = boxPose.Position + boxHalfExtents.z * boxAxis2 * dotSign;
+                boxPlanePoint0 = boxSideCenter + boxHalfExtents.x * boxAxis0 + boxHalfExtents.y * boxAxis1;
+                boxPlanePoint1 = boxSideCenter + boxHalfExtents.x * boxAxis0 - boxHalfExtents.y * boxAxis1;
+                boxPlanePoint2 = boxSideCenter - boxHalfExtents.x * boxAxis0 + boxHalfExtents.y * boxAxis1;
+                boxPlanePoint3 = boxSideCenter - boxHalfExtents.x * boxAxis0 - boxHalfExtents.y * boxAxis1;
+
+                boxClipNormal0 = boxAxis0;
+                boxClipNormal1 = boxAxis1;
+                boxClipPointPositive = boxPlanePoint0;
+                boxClipPointNegative = boxPlanePoint3;
+            }
         }
 
         public override bool IntersectWithFloor(Pose atPose, float floorLevel, out Vector3 point, out Vector3 normal, out float shift)
@@ -150,9 +347,9 @@ namespace xpbdUnity.Collision
             
             var boxPos = atPose.Position;
             var boxRot = atPose.Rotation;
-            var boxRight = boxRot.GetAxis0().normalized;
-            var boxUp = boxRot.GetAxis1().normalized;
-            var boxFwd = boxRot.GetAxis2().normalized;
+            var boxRight = boxRot.GetAxis0();
+            var boxUp = boxRot.GetAxis1();
+            var boxFwd = boxRot.GetAxis2();
                 
             var extRight = boxRight * _halfSize.x;
             var extUp = boxUp * _halfSize.y;
