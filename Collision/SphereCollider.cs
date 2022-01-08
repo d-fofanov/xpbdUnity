@@ -6,7 +6,7 @@ namespace xpbdUnity.Collision
     {
         public float Radius => _radius;
         public override float Volume => Mathf.PI * 1.333333f * _radius * _radius * _radius;
-        public override Vector3 AABBSize => Vector3.one * _radius;
+        public override Vector3 BBSize => Vector3.one * (_radius * 2f);
 
         private float _radius;
         
@@ -17,6 +17,11 @@ namespace xpbdUnity.Collision
             _invMass = 1f / mass;
             var invInertiaVal = 1f / (0.4f * mass * radius * radius);
             _invInertia = new Vector3(invInertiaVal, invInertiaVal, invInertiaVal);
+        }
+        
+        public override Vector3 CalcAABBExtents(Quaternion rotation)
+        {
+            return BBSize;
         }
 
 

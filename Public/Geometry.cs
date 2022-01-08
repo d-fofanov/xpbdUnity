@@ -60,6 +60,9 @@ namespace xpbdUnity
             for (int i=0; i<dirCnt; i++)
             {
                 var dir = directions[i];
+                if (dir == Vector3.zero)
+                    break;
+                
                 var dp = Vector3.Dot(dir, deltaPos);
                 var dpSign = Mathf.Sign(dp);
                 dp *= dpSign;

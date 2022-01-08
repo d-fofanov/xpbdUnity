@@ -15,12 +15,13 @@ namespace xpbdUnity.Collision
         public Vector3 InvInertia => _invInertia;
 
         public abstract float Volume { get; }
-        public abstract Vector3 AABBSize { get; }
+        public abstract Vector3 BBSize { get; }
         
         protected float _invMass;
         protected Vector3 _invInertia;
         protected Vector3 _drag;
 
+        public abstract Vector3 CalcAABBExtents(Quaternion rotation);
         public abstract bool Intersect(Pose atPose, BaseCollider withCollider, Pose otherPose, out Vector3 point, out Vector3 normal, out float shift);
         public abstract bool IntersectWithFloor(Pose atPose, float floorLevel, out Vector3 point, out Vector3 normal, out float shift);
     }

@@ -10,11 +10,12 @@ namespace xpbdUnity
         private List<Body> _bodies = new List<Body>();
         private List<Vector3> _forces = new List<Vector3>();
         private List<XJoint> _joints = new List<XJoint>();
-        private PrimitiveCollisionSystem _collisionSystem = new PrimitiveCollisionSystem();
+        private PrimitiveCollisionSystem _collisionSystem;
 
         public World(WorldParams @params)
         {
             _params = @params;
+            _collisionSystem = new PrimitiveCollisionSystem(_params.floorLevel, new FrictionProvider());
             _collisionSystem.SetBodies(_bodies);
         }
 
@@ -50,7 +51,27 @@ namespace xpbdUnity
             for (var i = 0; i < _params.numSubsteps; i++)
             {
                 for (var j = 0; j < _bodies.Count; j++)
-                    _bodies[j].Integrate(dt, _params.gravity, _forces[j]);
+                {
+                    _bodies[j].OnNextTick();
+                }
+
+                var contacts = _collisionSystem.Contacts;
+                for (int j = 0; j < contacts.Count; j++)
+                {
+                    var contact = contacts[j];
+                    contact.Body0.ApplyFrictionForce(dt, contact.Friction, contact.Normal, contact.Point, contact.DeltaV);
+                    // TODO get actually applied from prev call and pass it into the second
+                    contact.Body1?.ApplyFrictionForce(dt, -contact.Friction, -contact.Normal, contact.Point, -contact.DeltaV);
+                }
+                _collisionSystem.ClearContacts();
+                
+                for (var j = 0; j < _bodies.Count; j++)
+                {
+                    _bodies[j].ApplyGravity(dt, _params.gravity);
+                    _bodies[j].ApplyForce(dt, _forces[j]);
+                    _bodies[j].ApplyDrag(dt);
+                    _bodies[j].Integrate(dt);
+                }
 
                 _collisionSystem.Collide(dt);
 
@@ -64,6 +85,7 @@ namespace xpbdUnity
 
                 for (var j = 0; j < _joints.Count; j++)
                     _joints[j].SolveVel(dt);
+                
             }
 
             for (var j = 0; j < _bodies.Count; j++)

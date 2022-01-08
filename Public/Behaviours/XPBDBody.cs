@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using xpbdUnity.Collision;
 
@@ -37,6 +38,19 @@ namespace xpbdUnity
             var pose = _body.Pose;
             _transform.position = pose.Position;
             _transform.rotation = pose.Rotation;
+        }
+
+        private void OnDrawGizmos()
+        {
+            if (_body == null)
+                return;
+            
+            var extents = _body.AABBExtents;
+            var color = Gizmos.color;
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireCube(_body.Pose.Position, extents);
+            
+            Gizmos.color = color;
         }
     }
 }

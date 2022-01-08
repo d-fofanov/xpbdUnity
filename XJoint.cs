@@ -140,7 +140,7 @@ namespace xpbdUnity
 
             // Gauss-Seidel vars us make damping unconditionally stable in a 
             // very simple way. We clamp the correction for each constraint
-            // to the magnitude of the currect velocity making sure that
+            // to the magnitude of the current velocity making sure that
             // we never subtract more than there actually is.
 
             if (_params.rotDamping > 0f)

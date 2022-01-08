@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using xpbdUnity.Collision;
 
@@ -6,6 +7,8 @@ namespace xpbdUnity
     internal class Body
     {
         private const float MaxRotationPerSubstep = 0.5f;
+        
+        // check ApplyFrictionForce on adding any new state here
         private Pose _pose;
         private Pose _prevPose;
 
@@ -17,6 +20,8 @@ namespace xpbdUnity
         public Pose Pose => _pose;
         public BaseCollider Collider => _collider;
         public Vector3 Omega => _omega;
+
+        public Vector3 AABBExtents => _collider.CalcAABBExtents(_pose.Rotation);
 
         public Body(in Pose pose, BaseCollider collider)
         {
@@ -47,12 +52,89 @@ namespace xpbdUnity
             _pose = _pose.SetRotation(newRotation);
         }
 
-        public void Integrate(float dt, Vector3 gravity, Vector3 force)
+        public void ApplyGravity(float dt, Vector3 gravity)
         {
-            _prevPose = _pose;
+            _vel += gravity * dt;
+        }
+
+        public void ApplyForce(float dt, Vector3 force)
+        {
+            _vel += force * _collider.InvMass * dt;
+        }
+
+        public void ApplyFrictionForce(float dt, Vector3 contactFriction, Vector3 contactNormal, Vector3 contactPoint,
+            Vector3 contactDeltaV)
+        {
+            var beforePointV = GetVelocityAt(contactPoint);
+
+            var beforeVel = _vel;
+            var beforeOmega = _omega;
+
+            var corrAmount = contactFriction * dt;
+            ApplyCorrection(corrAmount, contactPoint, true);
+
+            var afterPointV = GetVelocityAt(contactPoint);
+            var actualDeltaV = afterPointV - beforePointV;
+            var actualTangDeltaV = actualDeltaV - contactNormal * Vector3.Dot(actualDeltaV, contactNormal);
+            var excessiveDeltaVPart = new Vector3(
+                CalcExcessiveDeltaVPart(actualTangDeltaV.x, contactDeltaV.x),
+                CalcExcessiveDeltaVPart(actualTangDeltaV.y, contactDeltaV.y),
+                CalcExcessiveDeltaVPart(actualTangDeltaV.z, contactDeltaV.z)
+            );
+
+            if (excessiveDeltaVPart != Vector3.zero)
+            {
+                var scaledCorr = Vector3.Scale(corrAmount, Vector3.one - excessiveDeltaVPart);
+                _vel = beforeVel;
+                _omega = beforeOmega;
+                ApplyCorrection(scaledCorr, contactPoint, true);
+                Debug.DrawLine(contactPoint, contactPoint + scaledCorr, Color.red);
+
+
+                afterPointV = GetVelocityAt(contactPoint);
+                actualDeltaV = afterPointV - beforePointV;
+                actualTangDeltaV = actualDeltaV - contactNormal * Vector3.Dot(actualDeltaV, contactNormal);
+                var newExcessiveDeltaVPart = new Vector3(
+                    CalcExcessiveDeltaVPart(actualTangDeltaV.x, contactDeltaV.x),
+                    CalcExcessiveDeltaVPart(actualTangDeltaV.y, contactDeltaV.y),
+                    CalcExcessiveDeltaVPart(actualTangDeltaV.z, contactDeltaV.z)
+                );
+                Debug.Log($"After correcting [{corrAmount.x}, {corrAmount.y}, {corrAmount.z}] friction" +
+                          $" with scale [{excessiveDeltaVPart.x}, {excessiveDeltaVPart.y}, {excessiveDeltaVPart.z}]" +
+                          $" got final excess of [{newExcessiveDeltaVPart.x}, {newExcessiveDeltaVPart.y}, {newExcessiveDeltaVPart.z}]");
+            }
+            else
+            {
+                Debug.DrawLine(contactPoint, contactPoint + corrAmount, Color.green);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private float CalcExcessiveDeltaVPart(float actual, float contact)
+        {
+            var absActual = Mathf.Abs(actual);
+            var absContact = Mathf.Abs(contact);
+            
+            return absActual == 0f ? 0f :
+                Mathf.Sign(actual) == Mathf.Sign(contact) ? 1f :
+                Mathf.Max(0f, (absActual - absContact) / absActual);
+        }
+
+        public void ApplyDrag(float dt)
+        {
             var drag = _vel;
             drag.Scale(_collider.Drag);
-            _vel += (gravity + (force - drag) * _collider.InvMass) * dt;
+            _vel -= drag * _collider.InvMass * dt;
+        }
+
+        public void OnNextTick()
+        {
+            _prevPose = _pose;
+        }
+        
+        public void Integrate(float dt)
+        {
+            // _vel update separated into methods above
             _pose = _pose.Translate(_vel * dt);
             ApplyRotation(_omega, dt);
         }
@@ -70,7 +152,13 @@ namespace xpbdUnity
 
         public Vector3 GetVelocityAt(Vector3 pos)
         {
-            return _vel - Vector3.Cross(pos - _pose.Position, _omega);
+            return GetVelocityAt(pos, _vel, _omega);
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Vector3 GetVelocityAt(Vector3 pos, Vector3 velocity, Vector3 omega)
+        {
+            return velocity - Vector3.Cross(pos - _pose.Position, omega);
         }
 
         public float GetInverseMass(Vector3 normal, Vector3? pos)
@@ -109,7 +197,6 @@ namespace xpbdUnity
 
             dq = _pose.InvRotate(dq);
             dq.Scale(_collider.InvInertia);
-
             dq = _pose.Rotate(dq);
 
             if (velocityLevel)

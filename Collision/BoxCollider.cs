@@ -8,7 +8,7 @@ namespace xpbdUnity.Collision
         public Vector3 Size => _size;
         public Vector3 HalfSize => _halfSize;
         public override float Volume => _size.x * _size.y * _size.z;
-        public override Vector3 AABBSize => _size;
+        public override Vector3 BBSize => _size;
         
         private Vector3 _size;
         private Vector3 _halfSize;
@@ -25,6 +25,19 @@ namespace xpbdUnity.Collision
                 1f / (size.y * size.y + size.z * size.z) / mass,
                 1f / (size.z * size.z + size.x * size.x) / mass,
                 1f / (size.x * size.x + size.y * size.y) / mass);
+        }
+        
+        public override Vector3 CalcAABBExtents(Quaternion rotation)
+        {
+            var axis0 = rotation.GetAxis0() * _size.x;
+            var axis1 = rotation.GetAxis1() * _size.y;
+            var axis2 = rotation.GetAxis2() * _size.z;
+            var aabbExtents = new Vector3(
+                Mathf.Abs(axis0.x) + Mathf.Abs(axis1.x) + Mathf.Abs(axis2.x),
+                Mathf.Abs(axis0.y) + Mathf.Abs(axis1.y) + Mathf.Abs(axis2.y),
+                Mathf.Abs(axis0.z) + Mathf.Abs(axis1.z) + Mathf.Abs(axis2.z)
+            );
+            return aabbExtents;
         }
 
         public override bool Intersect(Pose atPose, BaseCollider withCollider, Pose otherPose, out Vector3 point, out Vector3 normal,
@@ -139,51 +152,77 @@ namespace xpbdUnity.Collision
             return false;
         }
 
-        private static Vector3[] _directionsCache = new Vector3[6];
-        private static float[] _halfProjectionsCache = new float[12];
+        private const int DirectionsCount = 15;
+        private static readonly Vector3[] DirectionsCache = new Vector3[DirectionsCount];
+        private static readonly float[] HalfProjectionsCache = new float[DirectionsCount * 2];
         private bool IntersectWithBox(Pose atPose, BoxCollider box, Pose otherPose, out Vector3 point, out Vector3 normal, out float shift)
         {
             var box0HalfExtents = _halfSize;
             var box0Rot = atPose.Rotation;
-            _directionsCache[0] = box0Rot.GetAxis0();
-            _directionsCache[1] = box0Rot.GetAxis1();
-            _directionsCache[2] = box0Rot.GetAxis2();
+            DirectionsCache[0] = box0Rot.GetAxis0();
+            DirectionsCache[1] = box0Rot.GetAxis1();
+            DirectionsCache[2] = box0Rot.GetAxis2();
 
             var box1HalfExtents = box._halfSize;
             var box1Rot = otherPose.Rotation;
-            _directionsCache[3] = box1Rot.GetAxis0();
-            _directionsCache[4] = box1Rot.GetAxis1();
-            _directionsCache[5] = box1Rot.GetAxis2();
+            DirectionsCache[3] = box1Rot.GetAxis0();
+            DirectionsCache[4] = box1Rot.GetAxis1();
+            DirectionsCache[5] = box1Rot.GetAxis2();
 
-            var box0Axis0HalfExt = _directionsCache[0] * box0HalfExtents.x;
-            var box0Axis1HalfExt = _directionsCache[1] * box0HalfExtents.y;
-            var box0Axis2HalfExt = _directionsCache[2] * box0HalfExtents.z;
-            _halfProjectionsCache[0] = box0HalfExtents.x;
-            _halfProjectionsCache[1] = box0HalfExtents.y;
-            _halfProjectionsCache[2] = box0HalfExtents.z;
-            _halfProjectionsCache[3] = ProjectBoxOnAxis(_directionsCache[3], box0Axis0HalfExt, box0Axis1HalfExt, box0Axis2HalfExt);
-            _halfProjectionsCache[4] = ProjectBoxOnAxis(_directionsCache[4], box0Axis0HalfExt, box0Axis1HalfExt, box0Axis2HalfExt);
-            _halfProjectionsCache[5] = ProjectBoxOnAxis(_directionsCache[5], box0Axis0HalfExt, box0Axis1HalfExt, box0Axis2HalfExt);
+            int insertIndex = 6;
+            for (int i = 0; i < 3; i++)
+            {
+                for (int j = 0; j < 3; j++)
+                {
+                    var dir = Vector3.Cross(DirectionsCache[i], DirectionsCache[3 + j]);
+                    if (dir == Vector3.zero)
+                        continue;
+                    DirectionsCache[insertIndex++] = dir.normalized;
+                }
+            }
+
+            var box0Axis0HalfExt = DirectionsCache[0] * box0HalfExtents.x;
+            var box0Axis1HalfExt = DirectionsCache[1] * box0HalfExtents.y;
+            var box0Axis2HalfExt = DirectionsCache[2] * box0HalfExtents.z;
+            HalfProjectionsCache[0] = box0HalfExtents.x;
+            HalfProjectionsCache[1] = box0HalfExtents.y;
+            HalfProjectionsCache[2] = box0HalfExtents.z;
+            for (int i = 3; i < DirectionsCount; i++)
+            {
+                var dir = DirectionsCache[i];
+                if (dir == Vector3.zero)
+                    break;
+                HalfProjectionsCache[i] = ProjectBoxOnAxis(dir, box0Axis0HalfExt, box0Axis1HalfExt, box0Axis2HalfExt);
+            }
             
-            var box1Axis0HalfExt = _directionsCache[3] * box1HalfExtents.x;
-            var box1Axis1HalfExt = _directionsCache[4] * box1HalfExtents.y;
-            var box1Axis2HalfExt = _directionsCache[5] * box1HalfExtents.z;
-            _halfProjectionsCache[6] = ProjectBoxOnAxis(_directionsCache[0], box1Axis0HalfExt, box1Axis1HalfExt, box1Axis2HalfExt);
-            _halfProjectionsCache[7] = ProjectBoxOnAxis(_directionsCache[1], box1Axis0HalfExt, box1Axis1HalfExt, box1Axis2HalfExt);
-            _halfProjectionsCache[8] = ProjectBoxOnAxis(_directionsCache[2], box1Axis0HalfExt, box1Axis1HalfExt, box1Axis2HalfExt);
-            _halfProjectionsCache[9] = box1HalfExtents.x;
-            _halfProjectionsCache[10] = box1HalfExtents.y;
-            _halfProjectionsCache[11] = box1HalfExtents.z;
+            var box1Axis0HalfExt = DirectionsCache[3] * box1HalfExtents.x;
+            var box1Axis1HalfExt = DirectionsCache[4] * box1HalfExtents.y;
+            var box1Axis2HalfExt = DirectionsCache[5] * box1HalfExtents.z;
+            HalfProjectionsCache[DirectionsCount + 0] = ProjectBoxOnAxis(DirectionsCache[0], box1Axis0HalfExt, box1Axis1HalfExt, box1Axis2HalfExt);
+            HalfProjectionsCache[DirectionsCount + 1] = ProjectBoxOnAxis(DirectionsCache[1], box1Axis0HalfExt, box1Axis1HalfExt, box1Axis2HalfExt);
+            HalfProjectionsCache[DirectionsCount + 2] = ProjectBoxOnAxis(DirectionsCache[2], box1Axis0HalfExt, box1Axis1HalfExt, box1Axis2HalfExt);
+            HalfProjectionsCache[DirectionsCount + 3] = box1HalfExtents.x;
+            HalfProjectionsCache[DirectionsCount + 4] = box1HalfExtents.y;
+            HalfProjectionsCache[DirectionsCount + 5] = box1HalfExtents.z;
+            for (int i = 6; i < DirectionsCount; i++)
+            {
+                var dir = DirectionsCache[i];
+                if (dir == Vector3.zero)
+                    break;
+                
+                var idx = DirectionsCount + i;
+                HalfProjectionsCache[idx] = ProjectBoxOnAxis(dir, box1Axis0HalfExt, box1Axis1HalfExt, box1Axis2HalfExt);
+            }
 
             var deltaPos = otherPose.Position - atPose.Position;
-            if (Geometry.SATIntersect(deltaPos, _directionsCache, _halfProjectionsCache, out var collNormal,
+            if (Geometry.SATIntersect(deltaPos, DirectionsCache, HalfProjectionsCache, out var collNormal,
                     out var collDepth))
             {
                 normal = collNormal;
                 shift = collDepth;
                 point = CalcCollisionPoint(collNormal,
-                    atPose, box0HalfExtents, _directionsCache[0], _directionsCache[1], _directionsCache[2],
-                    otherPose, box1HalfExtents, _directionsCache[3], _directionsCache[4], _directionsCache[5]
+                    atPose, box0HalfExtents, DirectionsCache[0], DirectionsCache[1], DirectionsCache[2],
+                    otherPose, box1HalfExtents, DirectionsCache[3], DirectionsCache[4], DirectionsCache[5]
                 );
                 return true;
             }
@@ -350,12 +389,13 @@ namespace xpbdUnity.Collision
             var boxRight = boxRot.GetAxis0();
             var boxUp = boxRot.GetAxis1();
             var boxFwd = boxRot.GetAxis2();
-                
+            
             var extRight = boxRight * _halfSize.x;
             var extUp = boxUp * _halfSize.y;
             var extFwd = boxFwd * _halfSize.z;
 
-            if (boxPos.y > Mathf.Abs(extRight.y) + Mathf.Abs(extUp.y) + Mathf.Abs(extFwd.y))
+            var proj = ProjectBoxOnAxis(normal, extRight, extUp, extFwd);
+            if (proj < boxPos.y)
             {
                 point = Vector3.zero;
                 shift = 0f;
@@ -381,6 +421,12 @@ namespace xpbdUnity.Collision
             var s7 = Mathf.Max(0f, floorLevel - p7.y);
             
             var totalShift = s0 + s1 + s2 + s3 + s4 + s5 + s6 + s7;
+            if (totalShift == 0f)
+            {
+                point = Vector3.zero;
+                shift = 0f;
+                return false;
+            }
             point = p0 * s0 + p1 * s1 + p2 * s2 + p3 * s3 + p4 * s4 + p5 * s5 + p6 * s6 + p7 * s7;
             point *= 1f / totalShift;
             shift = Mathf.Max(Mathf.Max(Mathf.Max(s0, s1), Mathf.Max(s2, s3)),

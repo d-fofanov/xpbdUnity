@@ -24,5 +24,14 @@ namespace xpbdUnity
             var w2 = q.w * 2f;
             return new Vector3(q.y * w2 + q.x * z2, -q.x * w2 + q.y * z2, q.w * w2 - 1f + q.z * z2);
         }
+        
+        public static Vector3 Abs(this Vector3 v)
+        {
+            return new Vector3(
+                Mathf.Abs(v.x),
+                Mathf.Abs(v.y),
+                Mathf.Abs(v.z)
+            );
+        }
     }
 }
