@@ -61,63 +61,29 @@ namespace xpbdUnity
         {
             _vel += force * _collider.InvMass * dt;
         }
-
-        public void ApplyFrictionForce(float dt, Vector3 contactFriction, Vector3 contactNormal, Vector3 contactPoint,
-            Vector3 contactDeltaV)
+        
+        public float CalcFrictionForceLimit(float frictionMagnitude, Vector3 contactNormal, Vector3 contactPoint,
+            Vector3 deltaVDirection, float deltaVMagnitude)
         {
             var beforePointV = GetVelocityAt(contactPoint);
 
+            // TODO refactor
             var beforeVel = _vel;
             var beforeOmega = _omega;
 
-            var corrAmount = contactFriction * dt;
+            var corrAmount = deltaVDirection * frictionMagnitude;
             ApplyCorrection(corrAmount, contactPoint, true);
 
             var afterPointV = GetVelocityAt(contactPoint);
             var actualDeltaV = afterPointV - beforePointV;
             var actualTangDeltaV = actualDeltaV - contactNormal * Vector3.Dot(actualDeltaV, contactNormal);
-            var excessiveDeltaVPart = new Vector3(
-                CalcExcessiveDeltaVPart(actualTangDeltaV.x, contactDeltaV.x),
-                CalcExcessiveDeltaVPart(actualTangDeltaV.y, contactDeltaV.y),
-                CalcExcessiveDeltaVPart(actualTangDeltaV.z, contactDeltaV.z)
-            );
-
-            if (excessiveDeltaVPart != Vector3.zero)
-            {
-                var scaledCorr = Vector3.Scale(corrAmount, Vector3.one - excessiveDeltaVPart);
-                _vel = beforeVel;
-                _omega = beforeOmega;
-                ApplyCorrection(scaledCorr, contactPoint, true);
-                Debug.DrawLine(contactPoint, contactPoint + scaledCorr, Color.red);
-
-
-                afterPointV = GetVelocityAt(contactPoint);
-                actualDeltaV = afterPointV - beforePointV;
-                actualTangDeltaV = actualDeltaV - contactNormal * Vector3.Dot(actualDeltaV, contactNormal);
-                var newExcessiveDeltaVPart = new Vector3(
-                    CalcExcessiveDeltaVPart(actualTangDeltaV.x, contactDeltaV.x),
-                    CalcExcessiveDeltaVPart(actualTangDeltaV.y, contactDeltaV.y),
-                    CalcExcessiveDeltaVPart(actualTangDeltaV.z, contactDeltaV.z)
-                );
-                Debug.Log($"After correcting [{corrAmount.x}, {corrAmount.y}, {corrAmount.z}] friction" +
-                          $" with scale [{excessiveDeltaVPart.x}, {excessiveDeltaVPart.y}, {excessiveDeltaVPart.z}]" +
-                          $" got final excess of [{newExcessiveDeltaVPart.x}, {newExcessiveDeltaVPart.y}, {newExcessiveDeltaVPart.z}]");
-            }
-            else
-            {
-                Debug.DrawLine(contactPoint, contactPoint + corrAmount, Color.green);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private float CalcExcessiveDeltaVPart(float actual, float contact)
-        {
-            var absActual = Mathf.Abs(actual);
-            var absContact = Mathf.Abs(contact);
+            var actualTDVMagn = actualTangDeltaV.magnitude;
             
-            return absActual == 0f ? 0f :
-                Mathf.Sign(actual) == Mathf.Sign(contact) ? 1f :
-                Mathf.Max(0f, (absActual - absContact) / absActual);
+            _vel = beforeVel;
+            _omega = beforeOmega;
+
+            var reduction = actualTDVMagn == 0f ? 0f : Mathf.Clamp01(deltaVMagnitude / actualTDVMagn);
+            return reduction * frictionMagnitude;
         }
 
         public void ApplyDrag(float dt)
@@ -152,15 +118,9 @@ namespace xpbdUnity
 
         public Vector3 GetVelocityAt(Vector3 pos)
         {
-            return GetVelocityAt(pos, _vel, _omega);
+            return _vel - Vector3.Cross(pos - _pose.Position, _omega);
         }
         
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Vector3 GetVelocityAt(Vector3 pos, Vector3 velocity, Vector3 omega)
-        {
-            return velocity - Vector3.Cross(pos - _pose.Position, omega);
-        }
-
         public float GetInverseMass(Vector3 normal, Vector3? pos)
         {
             var n = pos == null ? normal : Vector3.Cross(pos.Value - _pose.Position, normal);

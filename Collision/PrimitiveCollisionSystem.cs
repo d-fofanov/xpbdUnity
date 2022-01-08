@@ -12,17 +12,19 @@ namespace xpbdUnity.Collision
             public readonly Vector3 Point;
             public readonly Vector3 Normal;
             public readonly float Depth;
-            public readonly Vector3 DeltaV;
-            public readonly Vector3 Friction;
+            public readonly Vector3 DeltaVDirection;
+            public readonly float DeltaVMagnitude;
+            public readonly float Friction;
 
-            public ContactInfo(Body body0, Body body1, Vector3 point, Vector3 normal, float depth, Vector3 deltaV, Vector3 friction)
+            public ContactInfo(Body body0, Body body1, Vector3 point, Vector3 normal, float depth, Vector3 deltaVDirection, float deltaVMagnitude, float friction)
             {
                 Body0 = body0;
                 Body1 = body1;
                 Point = point;
                 Normal = normal;
                 Depth = depth;
-                DeltaV = deltaV;
+                DeltaVDirection = deltaVDirection;
+                DeltaVMagnitude = deltaVMagnitude;
                 Friction = friction;
             }
         }
@@ -80,8 +82,11 @@ namespace xpbdUnity.Collision
             {
                 var pose = body.Pose;
                 var collider = body.Collider;
-                if (collider.IntersectWithFloor(pose, _globalFloorLevel,
-                    out var point, out var normal, out var shift))
+
+                var boundsMin = pose.Position - body.AABBExtents * 0.5f;
+                if (boundsMin.y < _globalFloorLevel &&
+                    collider.IntersectWithFloor(pose, _globalFloorLevel,
+                        out var point, out var normal, out var shift))
                 {
                     AddContact(body, null, point, normal, shift);
                     Body.ApplyBodyPairCorrection(body, null, normal * shift, 0f, dt, point);
@@ -99,10 +104,16 @@ namespace xpbdUnity.Collision
             // simplified (pointVel0 - proj0 * normal) - (pointVel1 - proj1 * normal)
             // delta of velocities' parts tangential to normal
             var deltaV = pointVel0 - pointVel1 - (proj0 - proj1) * normal;
+            var deltaVMagnitude = deltaV.magnitude;
+            var deltaVDirection = Vector3.zero;
+            if (deltaVMagnitude != 0f)
+            {
+                deltaVDirection = deltaV * (1f / deltaVMagnitude);
+            }
             
             Debug.DrawLine(point, point + deltaV, Color.blue);
-            var friction = _frictionProvider.CalculateFriction(body0, body1, point, normal, depth, deltaV);
-            _contacts.Add(new ContactInfo(body0, body1, point, normal, depth, deltaV, friction));
+            var friction = _frictionProvider.CalculateFriction(body0, body1, point, normal, depth, deltaVDirection, deltaVMagnitude);
+            _contacts.Add(new ContactInfo(body0, body1, point, normal, depth, deltaVDirection, deltaVMagnitude, friction));
         }
     }
 }
