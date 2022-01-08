@@ -271,18 +271,31 @@ namespace xpbdUnity.Collision
                 ClipPointByPlanes(ref box1PlanePoint1, box0ClipNormal0, box0ClipNormal1, box0ClipPointPositive, box0ClipPointNegative);
                 ClipPointByPlanes(ref box1PlanePoint2, box0ClipNormal0, box0ClipNormal1, box0ClipPointPositive, box0ClipPointNegative);
                 ClipPointByPlanes(ref box1PlanePoint3, box0ClipNormal0, box0ClipNormal1, box0ClipPointPositive, box0ClipPointNegative);
-                var weight0 = Mathf.Max(0f, Vector3.Dot(box0PlanePoint0 - box1PlanePoint0, box0PlaneNormal));
-                var weight1 = Mathf.Max(0f, Vector3.Dot(box0PlanePoint0 - box1PlanePoint1, box0PlaneNormal));
-                var weight2 = Mathf.Max(0f, Vector3.Dot(box0PlanePoint0 - box1PlanePoint2, box0PlaneNormal));
-                var weight3 = Mathf.Max(0f, Vector3.Dot(box0PlanePoint0 - box1PlanePoint3, box0PlaneNormal));
+                var weight0 = Vector3.Dot(box0PlanePoint0 - box1PlanePoint0, box0PlaneNormal);
+                var weight1 = Vector3.Dot(box0PlanePoint0 - box1PlanePoint1, box0PlaneNormal);
+                var weight2 = Vector3.Dot(box0PlanePoint0 - box1PlanePoint2, box0PlaneNormal);
+                var weight3 = Vector3.Dot(box0PlanePoint0 - box1PlanePoint3, box0PlaneNormal);
 
-                var weightsSum = weight0 + weight1 + weight2 + weight3;
-                if (weightsSum <= 0f)
+                if (weight0 <= 0f && weight1 <= 0f && weight2 <= 0f && weight3 <= 0f)
                 {
-                    Debug.LogWarning("No points under the contact surface");
-                    return box1PlanePoint0;
+                    weight0 = weight0 < 0f ? 0f : 1f;
+                    weight1 = weight1 < 0f ? 0f : 1f;
+                    weight2 = weight2 < 0f ? 0f : 1f;
+                    weight3 = weight3 < 0f ? 0f : 1f;
                 }
-
+                else
+                {
+                    weight0 = Mathf.Max(0f, weight0);
+                    weight1 = Mathf.Max(0f, weight1);
+                    weight2 = Mathf.Max(0f, weight2);
+                    weight3 = Mathf.Max(0f, weight3);
+                }
+                
+                var weightsSum = weight0 + weight1 + weight2 + weight3;
+                if (weightsSum == 0f)
+                {
+                    weightsSum = weight0 = 1f;
+                }
                 return (weight0 * box1PlanePoint0 + weight1 * box1PlanePoint1 +
                         weight2 * box1PlanePoint2 + weight3 * box1PlanePoint3) / weightsSum;
             }
@@ -292,18 +305,31 @@ namespace xpbdUnity.Collision
                 ClipPointByPlanes(ref box0PlanePoint1, box1ClipNormal0, box1ClipNormal1, box1ClipPointPositive, box1ClipPointNegative);
                 ClipPointByPlanes(ref box0PlanePoint2, box1ClipNormal0, box1ClipNormal1, box1ClipPointPositive, box1ClipPointNegative);
                 ClipPointByPlanes(ref box0PlanePoint3, box1ClipNormal0, box1ClipNormal1, box1ClipPointPositive, box1ClipPointNegative);
-                var weight0 = Mathf.Max(0f, Vector3.Dot(box1PlanePoint0 - box0PlanePoint0, box1PlaneNormal));
-                var weight1 = Mathf.Max(0f, Vector3.Dot(box1PlanePoint0 - box0PlanePoint1, box1PlaneNormal));
-                var weight2 = Mathf.Max(0f, Vector3.Dot(box1PlanePoint0 - box0PlanePoint2, box1PlaneNormal));
-                var weight3 = Mathf.Max(0f, Vector3.Dot(box1PlanePoint0 - box0PlanePoint3, box1PlaneNormal));
+                var weight0 = Vector3.Dot(box1PlanePoint0 - box0PlanePoint0, box1PlaneNormal);
+                var weight1 = Vector3.Dot(box1PlanePoint0 - box0PlanePoint1, box1PlaneNormal);
+                var weight2 = Vector3.Dot(box1PlanePoint0 - box0PlanePoint2, box1PlaneNormal);
+                var weight3 = Vector3.Dot(box1PlanePoint0 - box0PlanePoint3, box1PlaneNormal);
 
-                var weightsSum = weight0 + weight1 + weight2 + weight3;
-                if (weightsSum <= 0f)
+                if (weight0 <= 0f && weight1 <= 0f && weight2 <= 0f && weight3 <= 0f)
                 {
-                    Debug.LogWarning("No points under the contact surface");
-                    return box0PlanePoint0;
+                    weight0 = weight0 < 0f ? 0f : 1f;
+                    weight1 = weight1 < 0f ? 0f : 1f;
+                    weight2 = weight2 < 0f ? 0f : 1f;
+                    weight3 = weight3 < 0f ? 0f : 1f;
                 }
-
+                else
+                {
+                    weight0 = Mathf.Max(0f, weight0);
+                    weight1 = Mathf.Max(0f, weight1);
+                    weight2 = Mathf.Max(0f, weight2);
+                    weight3 = Mathf.Max(0f, weight3);
+                }
+                
+                var weightsSum = weight0 + weight1 + weight2 + weight3;
+                if (weightsSum == 0f)
+                {
+                    weightsSum = weight0 = 1f;
+                }
                 return (weight0 * box0PlanePoint0 + weight1 * box0PlanePoint1 +
                         weight2 * box0PlanePoint2 + weight3 * box0PlanePoint3) / weightsSum;
             }
