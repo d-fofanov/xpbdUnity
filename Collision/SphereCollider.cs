@@ -61,7 +61,7 @@ namespace xpbdUnity.Collision
 
             normal = distance > Mathf.Epsilon ? dp / distance : Vector3.up;
             shift = rSum - distance;
-            point = atPose.Position + normal * (_radius - 0.5f * shift);
+            point = atPose.Position - normal * (_radius - 0.5f * shift);
             
             return shift > 0f;
         }

@@ -59,10 +59,16 @@ namespace xpbdUnity
                 for (int j = 0; j < contacts.Count; j++)
                 {
                     var contact = contacts[j];
-                    contact.Body0.ApplyFrictionForce(dt, contact.Friction, contact.Normal, contact.Point, contact.DeltaV);
-                    // TODO get actually applied from prev call and pass it into the second
-                    contact.Body1?.ApplyFrictionForce(dt, -contact.Friction, -contact.Normal, contact.Point, -contact.DeltaV);
+                    var limit = contact.Friction * dt;
+                    limit = contact.Body0.CalcFrictionForceLimit(limit, contact.Normal, contact.Point,
+                        contact.DeltaVDirection, contact.DeltaVMagnitude);
+                    limit = contact.Body1?.CalcFrictionForceLimit(limit, -contact.Normal, contact.Point,
+                        -contact.DeltaVDirection, contact.DeltaVMagnitude) ?? limit;
+                    
+                    contact.Body0.ApplyCorrection(limit * contact.DeltaVDirection, contact.Point, true);
+                    contact.Body1?.ApplyCorrection(-limit * contact.DeltaVDirection, contact.Point, true);
                 }
+
                 _collisionSystem.ClearContacts();
                 
                 for (var j = 0; j < _bodies.Count; j++)
